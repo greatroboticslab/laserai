@@ -8,7 +8,7 @@ graphs automatically, and saves all outputs to your system’s Downloads folder.
 
 ------------------------------------------------------------------------------------------
 *******************
-##Before you read further: If you are a Doctor Zhang Hongbo researcher and is only loooking for the app, the app is downloadable in the google drive thang_data/Code/lazerApp_
+# Before you read further: If you are a Doctor Zhang Hongbo researcher and is only loooking for the app, the app is downloadable in the google drive thang_data/Code/lazerApp_
 *******************
 # 🧭 Overview
 
