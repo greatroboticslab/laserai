@@ -1,0 +1,10 @@
+{
+    "version": "4.0.2",
+    "description": "4.0.2 Bug-fix release",
+    "instruments": "18480",
+    "firmware": "621",
+    "features": {
+        "api-server": "621"
+    }
+}
+

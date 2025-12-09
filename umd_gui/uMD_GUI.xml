@@ -1,0 +1,71 @@
+﻿<?xml version="1.0"?>
+<doc>
+<assembly>
+<name>
+uMD_GUI
+</name>
+</assembly>
+<members>
+<member name="T:uMDGUI.My.Resources.Resources">
+<summary>
+  A strongly-typed resource class, for looking up localized strings, etc.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.ResourceManager">
+<summary>
+  Returns the cached ResourceManager instance used by this class.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.Culture">
+<summary>
+  Overrides the current thread's CurrentUICulture property for all
+  resource lookups using this strongly typed resource class.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.ActiveButton6">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.DisabledButton1">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.GreenButton1">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.InActiveButton4">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.Orange1">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.Smiley3">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="P:uMDGUI.My.Resources.Resources.YellowButton1">
+<summary>
+  Looks up a localized resource of type System.Drawing.Bitmap.
+</summary>
+</member>
+<member name="F:uMDGUI.MainForm._bridge">
+ <summary>
+ '''''''''''''''''''''''''''''''''''''''''''''''''''''''' Initalizes bridge to call mqtt and send value2 as well as safeguard
+ </summary>
+</member>
+<member name="M:uMDGUI.MainForm.SetText(System.String)">
+ <summary>
+ ''''''''''''''''''''''''''''''''''''''''''''''''''''''' end of initialize bridge
+ </summary>
+</member>
+</members>
+</doc>
