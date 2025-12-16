@@ -199,24 +199,6 @@ If the app cannot find the CLI or API, it will show a setup panel and explain ho
 
 ---
 
-# Building the Windows EXE
-
-### From PowerShell (not WSL)
-
-```bash
-pyinstaller app.py --onefile --noconsole
-```
-
-This generates:
-
-```text
-/dist/app.exe
-```
-
-> Running PyInstaller **inside WSL** will create a Linux binary instead. Always build from Windows-side PowerShell.
-
----
-
 # Repository Structure
 
 ```text
