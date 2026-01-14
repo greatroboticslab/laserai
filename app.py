@@ -14,10 +14,10 @@ import sys
 from pathlib import Path
 
 def _get_base_dir() -> Path:
-    # When running from a PyInstaller .exe, files get unpacked to _MEIPASS
+    #running from a PyInstaller .exe, files get unpacked to _MEIPASS
     if hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
-    # Normal Python run: use this file's directory
+    #default py run: use this file's directory
     return Path(__file__).resolve().parent
 
 BASE_DIR = _get_base_dir()
@@ -39,9 +39,9 @@ def main():
     
     app = tb.Window(themename="flatly") 
     app.title("Laser Lab Control")
-    app.geometry("900x600")
+    app.geometry("1200x1000")
     try:
-        # ttkbootstrap helper to center the window
+        #ttkbootstrap helper to center the window
         app.place_window_center()
     except Exception:
         pass

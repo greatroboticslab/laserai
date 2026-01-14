@@ -1,0 +1,11 @@
+{
+    "version": "4.1.1",
+    "description": "4.1.1 Feature release",
+    "instruments": "19485",
+    "firmware": "634",
+    "moku_compile": "2",
+    "features": {
+        "api-server": "634"
+    }
+}
+

@@ -3,7 +3,7 @@
 # - Launches external uMD_GUI.exe (VB app)
 # - Ensures a local MQTT broker (mosquitto.exe in broker_mqtt/) is running
 #   * On Windows: run mosquitto.exe directly
-#   * On WSL: convert path with wslpath -w and run via cmd.exe (just like uMD_GUI.exe)
+#   * On WSL: convert path with wslpath -w and run via cmd.exe (just like uMD_GUI.exe) DEV ONLY
 # - Subscribes to "vb_to_py" and converts raw interferometer data to displacement (nm)
 # - Displays latest displacement; ready to be extended with graphs
 
@@ -28,7 +28,7 @@ import paho.mqtt.client as mqtt
 try:
     from process_raw import is_wsl, wsl_to_win_path, raw_to_nm
 except ImportError:
-    
+    # Fallbacks if process_raw.py isn't present
     import platform
 
     def is_wsl() -> bool:
@@ -45,7 +45,7 @@ except ImportError:
         return path
 
     def raw_to_nm(D, wavelength=632.991372, phase=0.0, correction=0.0):
-        # (D - phase) * λ/2 - correction  in vb code
+        # Same math as VB: (D - phase) * λ/2 - correction
         return (D - phase) * (wavelength / 2.0) - correction
 
 
@@ -97,10 +97,11 @@ def ensure_broker_running():
         print(f"[MQTT] mosquitto.exe not found at: {broker_exe_linux}")
         return None
 
-    # --------- WSL branch: use wslpath + cmd.exe to run Windows mosquitto.exe ---------
+    # --------- WSL branch: use wslpath + cmd.exe to run Windows mosquitto.exe --------- DEV ONLY
     if is_wsl():
         try:
             # Convert EXE + directory to Windows paths
+            # Example: /home/.../broker_mqtt/mosquitto.exe -> \\wsl.localhost\...\mosquitto.exe
             result_exe = subprocess.run(
                 ["wslpath", "-w", broker_exe_linux],
                 capture_output=True,
@@ -149,7 +150,7 @@ def ensure_broker_running():
             print("[MQTT] Failed to start mosquitto:", e)
             return None
 
-    # awit psuedo
+    # Give it a moment to start listening
     for _ in range(20):
         time.sleep(0.1)
         if _is_port_open(MQTT_PORT):
@@ -175,17 +176,22 @@ class DisplayFrame(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, padding=16)
 
-
+        # Relative path to uMD GUI EXE (within project)
         self.exe_rel_path = os.path.join("umd_gui", "uMD_GUI.exe")
         self.process = None        # uMD_GUI process handle
 
-
+        # Start / attach to MQTT broker
         self.broker_proc = ensure_broker_running()
 
-
+        # MQTT / data state
         self.mqtt_client = None
-        self.data_buffer = deque(maxlen=MAX_POINTS)  
+        self.data_buffer = deque(maxlen=MAX_POINTS)  # sequence of displacement samples (nm)
         self.last_nm = None
+        self.last_payload = None
+        self.last_ref_count = None
+        self.last_d_counts = None
+        self.last_phase_raw = None
+        self.last_source = None  # 'csv' or 'float' or 'bad'
 
         self._build_ui()
         self._setup_mqtt()
@@ -221,13 +227,21 @@ class DisplayFrame(ttk.Frame):
             bootstyle="inverse-secondary",
         ).pack(anchor="w", pady=(0, 10))
 
+        # Latest displacement
         self.disp_var = tk.StringVar(value="Latest displacement: --- nm")
         ttk.Label(
             tool_frame,
             textvariable=self.disp_var,
             bootstyle="inverse-info",
         ).pack(anchor="w", pady=(0, 10))
+        # MQTT debug/status (useful even when the app is packaged with console=False)
+        self.payload_var = tk.StringVar(value="(waiting for MQTT...)" )
+        self.raw_var = tk.StringVar(value="")
+        tk.Label(self, text="Last MQTT payload:").pack(anchor="w")
+        tk.Label(self, textvariable=self.payload_var, wraplength=560, justify="left").pack(anchor="w", pady=(0, 6))
+        tk.Label(self, textvariable=self.raw_var).pack(anchor="w", pady=(0, 10))
 
+        # Buttons
         btn_frame = ttk.Frame(tool_frame)
         btn_frame.pack(anchor="w", pady=(10, 0))
 
@@ -245,6 +259,7 @@ class DisplayFrame(ttk.Frame):
             command=self._close_app,
         ).pack(side="left")
 
+        
 
     # ---------------------------
     # MQTT
@@ -272,38 +287,82 @@ class DisplayFrame(ttk.Frame):
         client.subscribe(MQTT_TOPIC)
         print(f"[MQTT] Subscribed to '{MQTT_TOPIC}'")
 
-    def _on_mqtt_message(self, client, userdata, msg):
-        """
-        Called whenever a message arrives on vb_to_py.
+    def _on_mqtt_message(self, _client, _userdata, msg):
+        """Handle MQTT messages coming from VB.
 
-        Payload format: "refCount,D,phaseRaw"
+        Expected formats:
+          1) CSV:  refCount,D,phaseRaw
+          2) Float: a single number (treated as already-in-nm displacement)
         """
         try:
-            ref_str, d_str, phase_str = msg.payload.decode().split(",")
+            raw = msg.payload or b""
+            text = raw.decode("utf-8", errors="replace").strip()
+        except Exception:
+            text = ""
 
-            D = int(d_str)
-            phase_counts = int(phase_str)
-        except ValueError:
-            print("[MQTT] Bad payload:", msg.payload)
+        if not text:
             return
 
-        phase = phase_counts / PHASE_SCALE
+        # Always store the raw payload so the GUI can show what it's receiving.
+        self.last_payload = text
 
-        nm = raw_to_nm(
-            D,
-            wavelength=WAVELENGTH_NM,
-            phase=phase,
-            correction=CORRECTION_NM,
-        )
+        nm = None
+        ref_count = None
+        d_counts = None
+        phase_raw = None
 
-        self.data_buffer.append(nm)
-        self.last_nm = nm
+        # Try CSV first
+        if "," in text:
+            parts = [p.strip() for p in text.split(",")]
+            if len(parts) == 3:
+                try:
+                    ref_count = int(float(parts[0]))
+                    d_counts = int(parts[1])
+                    phase_raw = int(parts[2])
 
+                    # Mirror VB math:
+                    #   currentValue = (D - (phaseRaw/PHASE_SCALE)) * WAVELENGTH_NM/2 - CORRECTION_NM
+                    phase = float(phase_raw) / float(PHASE_SCALE)
+                    nm = (float(d_counts) - phase) * float(WAVELENGTH_NM) / 2.0 - float(CORRECTION_NM)
+                    self.last_source = "csv"
+                except Exception:
+                    nm = None
+
+        # Fallback: single float (already a displacement value)
+        if nm is None:
+            try:
+                nm = float(text)
+                self.last_source = "float"
+            except Exception:
+                self.last_source = "bad"
+                return
+
+        # Update stored values
+        self.last_nm = float(nm)
+        self.last_ref_count = ref_count
+        self.last_d_counts = d_counts
+        self.last_phase_raw = phase_raw
+
+        # Keep a small rolling buffer for plotting/diagnostics
+        self.data_buffer.append((time.time(), self.last_nm))
     def _start_ui_updates(self):
         """Periodic UI update; called in the Tk main thread."""
         if self.last_nm is not None:
             self.disp_var.set(f"Latest displacement: {self.last_nm:.3f} nm")
+        # Update MQTT debug labels (visible even in the packaged EXE)
+        if hasattr(self, "payload_var"):
+            self.payload_var.set(self.last_payload if self.last_payload else "(waiting for MQTT...)")
+        if hasattr(self, "raw_var"):
+            if self.last_source == "csv" and self.last_ref_count is not None:
+                self.raw_var.set(f"Parsed: refCount={self.last_ref_count}, D={self.last_d_counts}, phaseRaw={self.last_phase_raw}")
+            elif self.last_source == "float":
+                self.raw_var.set("Parsed: single float (treated as nm)")
+            elif self.last_source == "bad":
+                self.raw_var.set("Parsed: bad payload (couldn't parse)")
+            else:
+                self.raw_var.set("")
 
+        # Here is where you'd also redraw a graph from self.data_buffer
 
         self.after(UI_UPDATE_MS, self._start_ui_updates)
 
@@ -319,7 +378,7 @@ class DisplayFrame(ttk.Frame):
           - If WSL, convert to Windows path via wslpath -w and launch with explorer.exe
           - Else, run directly on Windows
         """
-
+        # Linux-side absolute path
         linux_path = os.path.abspath(self.exe_rel_path)
 
         if not os.path.exists(linux_path) and not is_wsl():
@@ -330,7 +389,7 @@ class DisplayFrame(ttk.Frame):
             self.status_var.set("Status: Launching...")
 
             if is_wsl():
-                
+                # Convert to Windows path via wslpath (same pattern as your original code)
                 result = subprocess.run(
                     ["wslpath", "-w", linux_path],
                     capture_output=True,
@@ -339,12 +398,12 @@ class DisplayFrame(ttk.Frame):
                 )
                 win_path = result.stdout.strip()
 
-
+                # Launch using Windows Explorer
                 subprocess.Popen(["explorer.exe", win_path])
                 self.status_var.set("Status: Launched in Windows")
 
             else:
-
+                # Native Windows
                 self.process = subprocess.Popen(
                     [linux_path],
                     stdout=subprocess.DEVNULL,
@@ -380,9 +439,9 @@ if __name__ == "__main__":
     frame.pack(fill="both", expand=True)
 
     def on_close():
-
+        # close VB app if running
         frame._close_app()
-
+        # stop broker we started (if any)
         if frame.broker_proc is not None:
             try:
                 frame.broker_proc.terminate()
