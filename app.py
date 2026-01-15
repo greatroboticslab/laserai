@@ -8,6 +8,7 @@ from ttkbootstrap.constants import *
 from process_raw import ProcessRawFrame
 from moku_waveform import MokuWaveformFrame
 from display import DisplayFrame
+from record_data import RecordDataFrame
 
 import os
 import sys
@@ -77,6 +78,10 @@ def main():
     # for diplay
     display_tab = DisplayFrame(nb)       
     nb.add(display_tab, text="uMD GUI")  
+
+    # record data
+    record_tab = RecordDataFrame(nb, moku_tab=moku_tab, display_tab=display_tab)
+    nb.add(record_tab, text="Record Data")
 
     # Existing raw processing tab
     process_tab = ProcessRawFrame(nb)
