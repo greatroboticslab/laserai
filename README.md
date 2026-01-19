@@ -44,13 +44,11 @@ Key capabilities:
   * Missing `mokucli` installation
 * A guided "Setup Required" page that helps users install missing components
 
-This makes the tool usable even on new lab machines where Moku software isn't installed yet.
-
 ---
 
 ## 2. Raw Data Processor (GUI)
 
-Implemented in `process_raw.py` .
+Implemented in `process_raw.py`.
 Designed for processing interferometer output logs formatted like:
 
 ```
@@ -99,12 +97,96 @@ output_<foldername>
 
 ## 3. Integrated Application Launcher
 
-The root script `app.py` (user did not upload — but referenced) manages:
+The root script `app.py` manages:
 
 * App initialization
 * Notebook-style tab structure
 * Embedding the MokuWaveformFrame and ProcessRawFrame GUIs
 * Building as a Windows `.exe` via PyInstaller
+
+---
+
+## 4. Automated Record Data (Frequency Sweep Logger)
+
+The **Record Data** tab provides an automated data-collection workflow designed to replicate and standardize the manual UMD GUI logging procedure used in the lab.
+
+This feature is intended for experiments where displacement data must be collected at multiple test frequencies (for example, 1–10 Hz) with consistent timing and waveform settings.
+
+### Preconditions (automatically enforced)
+
+The **Record Data** feature is only enabled when **all** of the following conditions are met:
+
+1. The **Moku:Go is connected** and ready to accept waveform parameter changes
+2. **MQTT is connected and receiving data**
+3. The **uMD GUI is running and actively streaming data** into the uMD GUI tab
+
+If any condition is not met, the Record button remains disabled and the status message indicates what is missing.
+
+### What the Record Data tab does
+
+Once started, the tool will:
+
+1. Automatically apply waveform settings to the Moku:Go
+2. Step through a user-defined frequency range (start to end, inclusive)
+3. Record raw displacement data for a fixed duration at each frequency
+4. Generate one log file per frequency
+5. Save all files to a user-selected output folder
+
+All frequency stepping and timing is handled automatically without manual intervention.
+
+### User-configurable inputs
+
+The Record Data tab allows the user to specify:
+
+* **Output folder path** (default: OS Downloads directory)
+
+  * Includes a Browse button to select a different location
+* **Output subfolder name** to group files from a single experiment run
+* **Recording duration per frequency** (in seconds)
+* **Frequency range** (start and end values)
+* **Waveform voltage (Vpp)** (default: 5 Vpp)
+* **Sample frequency** (used for documentation in the log header, default: 1000 Hz)
+
+### Progress window
+
+When recording begins, a modal progress window appears displaying:
+
+* Overall progress across all frequencies
+* The current frequency being recorded
+* The name of the file currently being written
+* Elapsed time and estimated remaining time
+* A **Stop** button to safely cancel the run
+
+The main application UI remains locked until recording completes or is stopped.
+
+### Output file format
+
+Each test frequency produces a separate text file named:
+
+```
+log_<frequency>Hz.txt
+```
+
+Each file begins with a header documenting the test conditions:
+
+```
+Sample Frequency = 1000 Hz Voltage = 5 Vpp Test Frequency = 1 Hz
+```
+
+Followed by raw displacement entries:
+
+```
+D:68 N:1
+D:68 N:2
+D:69 N:3
+```
+
+Where:
+
+* **D** is the raw displacement count from the interferometer
+* **N** is a local serial index starting at 1 for each file
+
+This format is intentionally compatible with the existing Raw Data Processor.
 
 ---
 
@@ -152,7 +234,7 @@ If the app cannot find the CLI or API, it will show a setup panel and explain ho
 
 # **Building the Windows EXE**
 
-### From PowerShell (not WSL):
+From PowerShell (not WSL):
 
 ```
 pyinstaller app.py --onefile --noconsole
@@ -164,7 +246,7 @@ This generates:
 /dist/app.exe
 ```
 
-Note: Running PyInstaller **inside WSL** will create a Linux binary instead. Always build from Windows-side PowerShell.
+Note: Running PyInstaller inside WSL will create a Linux binary instead. Always build from Windows-side PowerShell.
 
 ---
 
@@ -193,58 +275,24 @@ lazer_app/
 
 ---
 
-# **How It Works (High-Level)**
-
-## 1. Waveform Control
-
-`MokuWaveformFrame` builds a Bootstrap-styled interface allowing a user to define electrical waveforms.
-When the "Apply" button is pressed:
-
-1. Input ranges are validated
-2. Arguments are assembled
-3. The app calls:
-
-```
-instrument.generate_waveform(channel=..., type=..., amplitude=..., ...)
-```
-
-The GUI updates connection status, errors, and applied settings in real-time.
-
----
-
-## 2. Displacement Calculation
-
-From the physics side:
-
-* The interferometer tracks optical phase via the variable **D**
-* Nanometer displacement ~= `(wavelength / 2) * phase_shift`
-* `"Relative"` mode subtracts the initial D value for drift measurements
-
-This conversion is automated inside:
-
-```
-raw_to_nm()
-```
-
-Plots are rendered using `matplotlib` and exported as PNGs.
-
----
-
 # **Usage Overview**
 
 1. Launch the app
-2. Select:
 
-   * **Waveform Control**
-   * or **Raw Data Processing**
-3. Configure settings in the GUI
-4. Run commands
-5. Retrieve output (waveforms or processed plots/CSVs)
+2. Select one of the available tabs:
 
-The UI was built carefully to be friendly for researchers, with guard-rails and automatic fallback for missing software.
+   * Waveform Control
+   * Record Data
+   * Raw Data Processing
+
+3. Configure settings in the selected tab
+
+4. Run the desired operation
+
+5. Retrieve output files from the selected folder
 
 ---
 
 # **License**
 
-[MIT] or choose another license—just tell me if you want this added.
+MIT
