@@ -427,6 +427,16 @@ class DisplayFrame(ttk.Frame):
         else:
             self.status_var.set("Status: No process attached")
 
+    def is_mqtt_connected(self) -> bool:
+        return self.last_payload is not None
+
+    def is_streaming(self, max_age_sec: float = 1.0) -> bool:
+        return self.last_payload is not None
+
+    def is_umd_running(self) -> bool:
+        return self.process is not None
+
+
 
 # -------------------------------------------------------------------
 # Standalone test

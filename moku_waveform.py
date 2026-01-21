@@ -470,6 +470,28 @@ class MokuWaveformFrame(ttk.Frame):
     # ------------------------------------------------------------------
     # Connection logic
     # ------------------------------------------------------------------
+    def is_connected(self) -> bool:
+        return self._instrument is not None
+
+    def apply_sine(self, vpp: float, freq_hz: float, channel: int = 1):
+        """
+        Programmatic helper for automation (Record Data tab).
+        Uses the same underlying generate_waveform() call as the UI.
+        """
+        if self._instrument is None:
+            raise RuntimeError("Moku not connected")
+
+        # sine, 0 offset/phase
+        self._instrument.generate_waveform(
+            channel=int(channel),
+            type="Sine",
+            amplitude=float(vpp),
+            frequency=float(freq_hz),
+            offset=0.0,
+            phase=0.0,
+        )
+        self.status_var.set(f"Sine on ch{channel}: {vpp} Vpp, {freq_hz:g} Hz")
+
     def _connect(self):
         if WaveformGenerator is None:
             messagebox.showerror(
