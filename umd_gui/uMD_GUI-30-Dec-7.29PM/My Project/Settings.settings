@@ -1,0 +1,114 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="" GeneratedClassName="Settings">
+  <Profiles />
+  <Settings>
+    <Setting Name="Multiplier" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="UnitCorrectionFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="AveragingValue" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="AngleCorrectionFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="Angle_Reflector_Spacing" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">32.61</Value>
+    </Setting>
+    <Setting Name="SLCoefficient" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">360</Value>
+    </Setting>
+    <Setting Name="SSCoefficient" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">36</Value>
+    </Setting>
+    <Setting Name="Temperature" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">20</Value>
+    </Setting>
+    <Setting Name="Pressure" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">760</Value>
+    </Setting>
+    <Setting Name="Humidity" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">50</Value>
+    </Setting>
+    <Setting Name="TempUnits" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Degrees C</Value>
+    </Setting>
+    <Setting Name="PressureUnits" Type="System.String" Scope="User">
+      <Value Profile="(Default)">mm/Hg</Value>
+    </Setting>
+    <Setting Name="TempFactor" Type="System.String" Scope="User">
+      <Value Profile="(Default)">0.999728699</Value>
+    </Setting>
+    <Setting Name="PresFactor" Type="System.String" Scope="User">
+      <Value Profile="(Default)">0.999732179</Value>
+    </Setting>
+    <Setting Name="HumiFactor" Type="System.String" Scope="User">
+      <Value Profile="(Default)">1.000000000</Value>
+    </Setting>
+    <Setting Name="VacuumWavelength" Type="System.String" Scope="User">
+      <Value Profile="(Default)">632.991372</Value>
+    </Setting>
+    <Setting Name="TFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="PFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="HFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="ECFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="ScrollFactor" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">3</Value>
+    </Setting>
+    <Setting Name="TMREFFrequency" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">3.75</Value>
+    </Setting>
+    <Setting Name="TMWaveformFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">8</Value>
+    </Setting>
+    <Setting Name="TMUnitsFactor" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="LogFile" Type="System.String" Scope="User">
+      <Value Profile="(Default)">LogFile1.txt</Value>
+    </Setting>
+    <Setting Name="DFT_Skip_Factor" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="InterpolationFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="DiagnosticReadoutFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="ErrorDetectionFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="TemperatureCompAutoFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="PressureCompAutoFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="HumidityCompAutoFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+    <Setting Name="Axis1Flip" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="Axis2Flip" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="Axis3Flip" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">1</Value>
+    </Setting>
+    <Setting Name="EncoderFlag" Type="System.Int32" Scope="User">
+      <Value Profile="(Default)">0</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
