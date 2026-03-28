@@ -23,6 +23,9 @@ def _get_base_dir() -> Path:
 
 BASE_DIR = _get_base_dir()
 MOKU_DATA_DIR = BASE_DIR / "moku_data"
+# If you bundle mokucli.exe inside the app, add it to PATH for this process
+MOKUCLI_DIR = BASE_DIR / "moku"
+os.environ["PATH"] = str(MOKUCLI_DIR) + os.pathsep + os.environ.get("PATH", "")
 
 os.environ["MOKU_DATA_PATH"] = str(MOKU_DATA_DIR)
 
@@ -30,11 +33,7 @@ os.environ["MOKU_DATA_PATH"] = str(MOKU_DATA_DIR)
 from process_raw import ProcessRawFrame
 from moku_waveform import MokuWaveformFrame
 
-""" For Developer purposes -- This creates an executionable program
-pyinstaller --onefile ^
-  --add-data "moku_data;moku_data" ^
-  app.py
-"""
+
 
 def main():
     
@@ -78,6 +77,15 @@ def main():
     # for diplay
     display_tab = DisplayFrame(nb)       
     nb.add(display_tab, text="uMD GUI")  
+
+    def on_close():
+        try:
+            display_tab.shutdown()
+        except Exception:
+            pass
+        app.destroy()
+
+    app.protocol("WM_DELETE_WINDOW", on_close)
 
     # record data
     record_tab = RecordDataFrame(nb, moku_tab=moku_tab, display_tab=display_tab)

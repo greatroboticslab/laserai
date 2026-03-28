@@ -12,6 +12,7 @@ LaserAI is a Python-based toolkit designed for laboratories using the **Moku:Go*
 This application provides:
 
 * A **graphical interface** for configuring and controlling the Moku:Go waveform generator
+* **PID-based waveform smoothing** using Moku:Go's built-in PID Controller via Multi-Instrument Mode
 * A **cross-platform raw data processing engine** converting displacement readings into nanometers
 * Native support for **Windows, WSL, and Linux** folder picking and export paths
 * Auto-generation of **CSV files and visual plots** for experimental analysis
@@ -22,10 +23,11 @@ LaserAI is built with **Python 3.13**, **ttkbootstrap**, **matplotlib**, and the
 
 # **Features**
 
-## 1. Moku:Go Waveform Generator (GUI)
+## 1. Moku:Go Waveform Generator with PID Smoothing (GUI)
 
-Located in `MokuWaveformFrame` (see `display.py`).
-Key capabilities:
+Located in `MokuWaveformFrame` (see `moku_waveform.py`).
+
+### Waveform Generation
 
 * Connect to a Moku:Go via IP address
 * Generate **Sine**, **Square**, or **Noise** waveforms
@@ -38,8 +40,73 @@ Key capabilities:
   * Duty cycle (square only)
 * Built-in safety validation for all parameters
 * Ability to **stop output** or **disconnect** safely
-* Automatic detection of:
 
+### PID Smoothing (Open-Loop)
+
+The waveform tab includes a built-in **PID smoothing toggle** that uses Moku:Go's hardware PID Controller to clean up the generated waveform before it reaches the physical output.
+
+#### How it works
+
+When you click **Connect**, the app deploys **Multi-Instrument Mode (MiM)** on the Moku:Go with two instruments running simultaneously on the FPGA:
+
+* **Slot 1 — Waveform Generator**: Produces the target waveform (sine, square, noise)
+* **Slot 2 — PID Controller**: Processes the waveform signal to reduce noise and ringing
+
+When PID is **OFF** (default):
+```
+WG (Slot 1) → Output 1    (direct, same as standalone mode)
+```
+
+When PID is **ON**:
+```
+WG (Slot 1) → PID (Slot 2) → Output 1    (smoothed at MHz on the FPGA)
+```
+
+Toggling PID on/off only changes the internal signal routing. The Waveform Generator never stops or restarts — all waveform settings (frequency, amplitude, etc.) are preserved.
+
+#### How to use PID Smoothing
+
+1. **Connect** to the Moku:Go (enter IP, click Connect)
+2. **Set your waveform** (type, frequency, amplitude) and click **Apply Waveform**
+3. Verify the waveform is working on your measurement display
+4. **Enable PID Smoothing** — toggle the checkbox in the PID section
+5. **Adjust gains** if needed:
+   * Start with **Prop gain only** (default 10 dB), Int and Diff at 0
+   * If the waveform needs more smoothing, increase Prop gain
+   * If slow drift appears, add a small Int gain (e.g., 10 dB) with a low Int corner frequency
+   * **Avoid Diff gain** — derivative action amplifies high-frequency noise
+6. Click **Apply Gains** after changing values
+7. **Disable PID** — uncheck the toggle to return to direct WG output
+
+#### PID Settings Reference
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Prop gain (dB) | 10.0 | Proportional gain — main smoothing control. Higher = more effect |
+| Int gain (dB) | 0.0 | Integrator gain — corrects slow drift. Start at 0, add if needed |
+| Diff gain (dB) | 0.0 | Differentiator gain — usually leave at 0 (amplifies noise) |
+| Int corner (Hz) | 100.0 | Integrator saturation frequency |
+| Diff corner (Hz) | 100.0 | Differentiator saturation frequency |
+| Output limit (V) | 5.0 | Voltage clamp to protect piezo hardware |
+
+#### Suggested starting gains
+
+| Waveform | Prop gain | Int gain | Diff gain | Notes |
+|----------|-----------|----------|-----------|-------|
+| Sine (1–10 Hz) | 10 dB | 0 dB | 0 dB | Start here, increase prop if needed |
+| Square | 10 dB | 0 dB | 0 dB | Same starting point |
+| Any (more smoothing) | 20 dB | 10 dB | 0 dB | Add int for extra filtering |
+
+#### Important notes
+
+* PID smoothing is **open-loop** — the PID acts as a signal filter on the WG output, not a feedback controller
+* The PID runs on the Moku:Go FPGA at **125 MSa/s** — no Python in the signal path
+* All gains are in **dB**, not linear values
+* The Moku AI recommends using the **Digital Filter Box** or **FIR Filter Builder** instruments if you need more precise bandwidth shaping — the PID Controller is a simpler but effective option for basic smoothing
+
+### Setup Detection
+
+* Automatic detection of:
   * Missing `moku` Python package
   * Missing `mokucli` installation
 * A guided "Setup Required" page that helps users install missing components
@@ -134,6 +201,8 @@ Once started, the tool will:
 
 All frequency stepping and timing is handled automatically without manual intervention.
 
+**Note:** If PID smoothing is enabled in the Moku:Go Waveform tab, the recorded data will reflect the smoothed output. The Record Data tab calls the same waveform generator — PID state is preserved during recording.
+
 ### User-configurable inputs
 
 The Record Data tab allows the user to specify:
@@ -187,6 +256,47 @@ Where:
 * **N** is a local serial index starting at 1 for each file
 
 This format is intentionally compatible with the existing Raw Data Processor.
+
+---
+
+# **Architecture**
+
+## Multi-Instrument Mode (MiM)
+
+LaserAI connects to the Moku:Go using **Multi-Instrument Mode** instead of deploying a standalone Waveform Generator. This allows two instruments to run simultaneously on the FPGA:
+
+```
+┌─────────────────────────────────────────────────┐
+│                  Moku:Go FPGA                   │
+│                                                 │
+│  ┌──────────────┐      ┌──────────────┐        │
+│  │   Slot 1     │      │   Slot 2     │        │
+│  │  Waveform    │─────▶│    PID       │──▶ Output 1
+│  │  Generator   │      │  Controller  │        │
+│  └──────────────┘      └──────────────┘        │
+│         │                                       │
+│         └──────────────────────────────────▶ Output 1
+│              (when PID is OFF)                  │
+└─────────────────────────────────────────────────┘
+```
+
+When PID is OFF, the WG output routes directly to Output 1. When PID is ON, the WG output passes through the PID Controller first. The routing switch happens internally on the FPGA with zero interruption to the waveform.
+
+## System Data Flow
+
+```
+[Moku:Go WG + PID]  →  [Piezo Amplifier]  →  [Physical Displacement]
+                                                       ↓
+                                              [Laser Interferometer]
+                                                       ↓
+                                              [VB uMD_GUI.exe]
+                                                       ↓
+                                              [MQTT (vb_to_py)]
+                                                       ↓
+                                              [Python display.py]
+                                                       ↓
+                                              [Graph + Log Files]
+```
 
 ---
 
@@ -253,12 +363,15 @@ Note: Running PyInstaller inside WSL will create a Linux binary instead. Always 
 # **Repository Structure**
 
 ```
-lazer_app/
+laserai/
 │
 ├── app.py                # Main launcher (GUI host)
-├── display.py            # Contains MokuWaveformFrame (GUI)
+├── moku_waveform.py      # Waveform Generator + PID smoothing (MiM)
+├── display.py            # uMD GUI display + MQTT subscriber
+├── record_data.py        # Automated frequency sweep recorder
 ├── process_raw.py        # Raw data engine + GUI
-├── moku_waveform.py      # Auxiliary waveform logic
+│
+├── moku_diagnostic.py    # Standalone hardware diagnostic tool
 │
 ├── broker_mqtt/          # MQTT broker binaries (Windows)
 │
@@ -281,15 +394,35 @@ lazer_app/
 
 2. Select one of the available tabs:
 
-   * Waveform Control
-   * Record Data
-   * Raw Data Processing
+   * **Moku:Go Waveform** — generate waveforms + optional PID smoothing
+   * **uMD GUI** — view live displacement data
+   * **Record Data** — automated frequency sweep recording
+   * **Process Raw** — offline data processing
 
-3. Configure settings in the selected tab
+3. **Typical workflow:**
 
-4. Run the desired operation
+   * Connect to Moku:Go → Apply Waveform → (optional) Enable PID Smoothing
+   * Switch to uMD GUI tab to observe live displacement
+   * Use Record Data tab to capture data at multiple frequencies
+   * Use Process Raw tab to convert logs to CSV + plots
 
-5. Retrieve output files from the selected folder
+---
+
+# **Diagnostic Tool**
+
+`moku_diagnostic.py` is a standalone script for verifying hardware connectivity and Multi-Instrument Mode support. Run it before using the app if you encounter connection issues:
+
+```bash
+python moku_diagnostic.py                # default IP 192.168.73.1
+python moku_diagnostic.py 192.168.1.xx   # custom IP
+```
+
+The diagnostic tests:
+* Standalone PID Controller connectivity
+* Multi-Instrument Mode availability
+* WaveformGenerator + PIDController deployment in MiM
+* Signal routing configuration
+* `set_control_matrix`, `get_data()`, and cleanup methods
 
 ---
 

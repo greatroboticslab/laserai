@@ -111,12 +111,20 @@ class RecordDataFrame(ttk.Frame):
         return True
 
     def _start_condition_monitor(self):
-        ok = self._conditions_ok()
+        moku_ok = getattr(self.moku_tab, "is_connected", lambda: False)()
+        mqtt_ok = getattr(self.display_tab, "is_mqtt_connected", lambda: False)()
+        umd_ok = getattr(self.display_tab, "is_umd_running", lambda: False)()
+        stream_ok = getattr(self.display_tab, "is_streaming", lambda: False)()
+
+        ok = moku_ok and mqtt_ok and umd_ok and stream_ok
+
         self.start_btn.config(state=("normal" if ok else "disabled"))
-        if ok:
-            self.status.set("Status: ready (all conditions met)")
-        else:
-            self.status.set("Status: waiting (connect Moku, open uMD GUI, ensure MQTT data is streaming)")
+
+        self.status.set(
+            ("Status: ready ✅ " if ok else "Status: waiting ❌ ")
+            + f"| Moku={moku_ok} MQTT={mqtt_ok} uMD={umd_ok} Stream={stream_ok}"
+        )
+
         self.after(300, self._start_condition_monitor)
 
     # ---------- Recording lifecycle ----------
