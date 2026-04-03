@@ -21,6 +21,14 @@ from ttkbootstrap.constants import *
 from collections import deque
 
 import paho.mqtt.client as mqtt
+from pathlib import Path
+
+def _get_base_dir() -> Path:
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS)
+    return Path(__file__).resolve().parent
+
+BASE_DIR = _get_base_dir()
 
 # -------------------------------------------------------------------
 # Helpers from process_raw (is_wsl, wsl_to_win_path, raw_to_nm)
@@ -89,7 +97,7 @@ def ensure_broker_running():
         print(f"[MQTT] Broker already running on {MQTT_BROKER_HOST}:{MQTT_PORT}")
         return None
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = str(BASE_DIR)
     broker_dir_linux = os.path.join(base_dir, "broker_mqtt")
     broker_exe_linux = os.path.join(broker_dir_linux, "mosquitto.exe")
 
@@ -177,7 +185,7 @@ class DisplayFrame(ttk.Frame):
         super().__init__(parent, padding=16)
 
         # Relative path to uMD GUI EXE (within project)
-        self.exe_rel_path = os.path.join("umd_gui", "uMD_GUI.exe")
+        self.exe_rel_path = str(BASE_DIR / "umd_gui" / "uMD_GUI.exe")
         self.process = None        # uMD_GUI process handle
 
         # Start / attach to MQTT broker
