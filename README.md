@@ -5,246 +5,336 @@ If you are **Dr. Zhang Hongbo** or a member of the **UMD Robotics / Laser Lab**,
 
 ---
 
-# **LaserAI: Moku:Go Control + Displacement Processing Toolkit**
+# LaserAI
 
-LaserAI is a Python-based toolkit designed for laboratories using the **Moku:Go** platform for waveform generation and laser interferometry experiments.
+LaserAI is a Python desktop application for a laser displacement / interferometry workflow. It combines Moku:Go waveform generation, a VB-based interferometer application (`uMD_GUI.exe`), a bundled local MQTT broker, automated recording, and raw-data processing into one interface.
 
-This application provides:
-
-* A **graphical interface** for configuring and controlling the Moku:Go waveform generator
-* **PID-based waveform smoothing** using Moku:Go's built-in PID Controller via Multi-Instrument Mode
-* A **cross-platform raw data processing engine** converting displacement readings into nanometers
-* Native support for **Windows, WSL, and Linux** folder picking and export paths
-* Auto-generation of **CSV files and visual plots** for experimental analysis
-
-LaserAI is built with **Python 3.13**, **ttkbootstrap**, **matplotlib**, and the **Liquid Instruments Moku API**.
+The Python app is the orchestration and UI layer. The VB application is still the current source of truth for the interferometer-side processed data stream.
 
 ---
 
-# **Features**
+## Overview
 
-## 1. Moku:Go Waveform Generator with PID Smoothing (GUI)
+This project connects several pieces of your lab workflow into one application:
 
-Located in `MokuWaveformFrame` (see `moku_waveform.py`).
-
-### Waveform Generation
-
-* Connect to a Moku:Go via IP address
-* Generate **Sine**, **Square**, or **Noise** waveforms
-* Fully configurable:
-
-  * Amplitude (4 mVpp – 10 Vpp)
-  * Frequency (1 mHz – 20 MHz)
-  * Offset voltage
-  * Phase
-  * Duty cycle (square only)
-* Built-in safety validation for all parameters
-* Ability to **stop output** or **disconnect** safely
-
-### PID Smoothing (Open-Loop)
-
-The waveform tab includes a built-in **PID smoothing toggle** that uses Moku:Go's hardware PID Controller to clean up the generated waveform before it reaches the physical output.
-
-#### How it works
-
-When you click **Connect**, the app deploys **Multi-Instrument Mode (MiM)** on the Moku:Go with two instruments running simultaneously on the FPGA:
-
-* **Slot 1 — Waveform Generator**: Produces the target waveform (sine, square, noise)
-* **Slot 2 — PID Controller**: Processes the waveform signal to reduce noise and ringing
-
-When PID is **OFF** (default):
-```
-WG (Slot 1) → Output 1    (direct, same as standalone mode)
-```
-
-When PID is **ON**:
-```
-WG (Slot 1) → PID (Slot 2) → Output 1    (smoothed at MHz on the FPGA)
-```
-
-Toggling PID on/off only changes the internal signal routing. The Waveform Generator never stops or restarts — all waveform settings (frequency, amplitude, etc.) are preserved.
-
-#### How to use PID Smoothing
-
-1. **Connect** to the Moku:Go (enter IP, click Connect)
-2. **Set your waveform** (type, frequency, amplitude) and click **Apply Waveform**
-3. Verify the waveform is working on your measurement display
-4. **Enable PID Smoothing** — toggle the checkbox in the PID section
-5. **Adjust gains** if needed:
-   * Start with **Prop gain only** (default 10 dB), Int and Diff at 0
-   * If the waveform needs more smoothing, increase Prop gain
-   * If slow drift appears, add a small Int gain (e.g., 10 dB) with a low Int corner frequency
-   * **Avoid Diff gain** — derivative action amplifies high-frequency noise
-6. Click **Apply Gains** after changing values
-7. **Disable PID** — uncheck the toggle to return to direct WG output
-
-#### PID Settings Reference
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Prop gain (dB) | 10.0 | Proportional gain — main smoothing control. Higher = more effect |
-| Int gain (dB) | 0.0 | Integrator gain — corrects slow drift. Start at 0, add if needed |
-| Diff gain (dB) | 0.0 | Differentiator gain — usually leave at 0 (amplifies noise) |
-| Int corner (Hz) | 100.0 | Integrator saturation frequency |
-| Diff corner (Hz) | 100.0 | Differentiator saturation frequency |
-| Output limit (V) | 5.0 | Voltage clamp to protect piezo hardware |
-
-#### Suggested starting gains
-
-| Waveform | Prop gain | Int gain | Diff gain | Notes |
-|----------|-----------|----------|-----------|-------|
-| Sine (1–10 Hz) | 10 dB | 0 dB | 0 dB | Start here, increase prop if needed |
-| Square | 10 dB | 0 dB | 0 dB | Same starting point |
-| Any (more smoothing) | 20 dB | 10 dB | 0 dB | Add int for extra filtering |
-
-#### Important notes
-
-* PID smoothing is **open-loop** — the PID acts as a signal filter on the WG output, not a feedback controller
-* The PID runs on the Moku:Go FPGA at **125 MSa/s** — no Python in the signal path
-* All gains are in **dB**, not linear values
-* The Moku AI recommends using the **Digital Filter Box** or **FIR Filter Builder** instruments if you need more precise bandwidth shaping — the PID Controller is a simpler but effective option for basic smoothing
-
-### Setup Detection
-
-* Automatic detection of:
-  * Missing `moku` Python package
-  * Missing `mokucli` installation
-* A guided "Setup Required" page that helps users install missing components
+- **Moku:Go** for waveform generation
+- **uMD_GUI.exe** for interferometer-side processing and MQTT publishing
+- **Mosquitto** as a bundled local MQTT broker
+- **Python GUI** for:
+  - launching the VB app
+  - receiving MQTT payloads
+  - converting raw interferometer values into displacement in nm
+  - recording data runs
+  - processing raw `.txt` logs into CSV and plots
 
 ---
 
-## 2. Raw Data Processor (GUI)
+## System Architecture
 
-Implemented in `process_raw.py`.
-Designed for processing interferometer output logs formatted like:
+The current signal and software flow is:
 
-```
-D:<float>   N:<integer>
-```
+Moku:Go waveform output
+→ physical laser / interferometer setup
+→ VB uMD_GUI.exe reads/derives signal values
+→ VB publishes MQTT payloads to topic "vb_to_py"
+→ Python display.py subscribes to MQTT
+→ Python parses payload into refCount / D / phaseRaw
+→ Python computes displacement in nm
+→ record_data.py logs measurement series while commanding Moku waveform settings
 
-### What it does:
-
-* Recursively scans all `.txt` files in a folder
-* Extracts displacement samples (`D`) and sample index (`N`)
-* Converts to nanometers using:
-
-```
-nm = (D - baseline) * (wavelength / 2) - correction
-```
-
-* Supports two operating modes:
-
-  1. **Absolute** mode
-  2. **Relative** (baseline-subtracted) mode
-
-* Auto-creates:
-
-  * CSV file
-  * Full plot of all samples
-  * Zoomed plot of first *N* points
-
-### Output Location:
-
-Always saved under your OS **Downloads** folder in:
-
-```
-output_<foldername>
-```
-
-### Windows, WSL, and Linux Support:
-
-* Native folder picker in Windows
-* Under WSL:
-
-  * Uses PowerShell.exe to open Windows dialogs
-  * Converts paths between WSL and NTFS
-* Will automatically open the export folder after processing
+Important: Python is **not** currently doing the low-level interferometer decoding. The VB application still produces the MQTT payloads that Python consumes.
 
 ---
 
-## 3. Integrated Application Launcher
+## Features
 
-The root script `app.py` manages:
+### 1. Moku:Go waveform control
 
-* App initialization
-* Notebook-style tab structure
-* Embedding the MokuWaveformFrame and ProcessRawFrame GUIs
-* Building as a Windows `.exe` via PyInstaller
+The Moku tab lets you connect to a Moku:Go and generate supported waveform types.
+
+Supported waveform types:
+
+* Sine
+* Square
+* Ramp
+* Pulse
+* Noise
+
+The Moku tab is the **single source of truth** for waveform configuration.
+
+Depending on the waveform type, only the relevant settings are shown or enabled to reduce confusion.
+
+Examples:
+
+* **Sine**: amplitude, frequency, offset, phase
+* **Square**: amplitude, frequency, offset, phase, duty
+* **Ramp**: amplitude, frequency, offset, phase, symmetry
+* **Pulse**: amplitude, frequency, offset, phase, pulse width, edge time
+* **Noise**: amplitude only
+
+### 2. PID smoothing with Multi-Instrument Mode
+
+On connect, the app deploys Moku:Go in **Multi-Instrument Mode (MiM)**:
+
+* **Slot 1**: Waveform Generator
+* **Slot 2**: PID Controller
+
+When PID is off:
+
+```text
+WG (Slot 1) → Output 1
+```
+
+When PID is on:
+
+```text
+WG (Slot 1) → PID (Slot 2) → Output 1
+```
+
+This allows waveform generation and hardware-side PID smoothing without redeploying the waveform generator.
+
+### 3. Live MQTT displacement display
+
+The Display tab:
+
+* launches `uMD_GUI.exe`
+* ensures a local Mosquitto broker is running
+* subscribes to `vb_to_py`
+* parses MQTT payloads
+* computes displacement in nm
+* displays the latest received values
+
+Supported MQTT payload formats:
+
+1. CSV: `refCount,D,phaseRaw`
+2. Single float: treated as already being displacement in nm
+
+### 4. Automated recording
+
+The Record Data tab automates waveform-based experiment logging.
+
+It uses the currently selected waveform configuration from the **Moku tab** and records the incoming interferometer displacement counts from the VB → MQTT stream.
+
+For periodic waveforms:
+
+* Sine
+* Square
+* Ramp
+* Pulse
+
+the recorder can sweep frequency from a user-defined start to end value.
+
+For **Noise**, recording runs as a single non-swept acquisition.
+
+The Record tab only shows the configuration relevant to the waveform currently selected in the Moku tab.
+
+### 5. Raw data processing
+
+The Process Raw tab:
+
+* scans `.txt` files recursively
+* extracts `D:<value> N:<serial>` records
+* converts to nanometers
+* exports CSV
+* creates plots
+
+It supports:
+
+* **Absolute mode**
+* **Relative (baseline-subtracted) mode**
 
 ---
 
-## 4. Automated Record Data (Frequency Sweep Logger)
+## Interferometer Math
 
-The **Record Data** tab provides an automated data-collection workflow designed to replicate and standardize the manual UMD GUI logging procedure used in the lab.
+The VB side publishes payloads in the form:
 
-This feature is intended for experiments where displacement data must be collected at multiple test frequencies (for example, 1–10 Hz) with consistent timing and waveform settings.
-
-### Preconditions (automatically enforced)
-
-The **Record Data** feature is only enabled when **all** of the following conditions are met:
-
-1. The **Moku:Go is connected** and ready to accept waveform parameter changes
-2. **MQTT is connected and receiving data**
-3. The **uMD GUI is running and actively streaming data** into the uMD GUI tab
-
-If any condition is not met, the Record button remains disabled and the status message indicates what is missing.
-
-### What the Record Data tab does
-
-Once started, the tool will:
-
-1. Automatically apply waveform settings to the Moku:Go
-2. Step through a user-defined frequency range (start to end, inclusive)
-3. Record raw displacement data for a fixed duration at each frequency
-4. Generate one log file per frequency
-5. Save all files to a user-selected output folder
-
-All frequency stepping and timing is handled automatically without manual intervention.
-
-**Note:** If PID smoothing is enabled in the Moku:Go Waveform tab, the recorded data will reflect the smoothed output. The Record Data tab calls the same waveform generator — PID state is preserved during recording.
-
-### User-configurable inputs
-
-The Record Data tab allows the user to specify:
-
-* **Output folder path** (default: OS Downloads directory)
-
-  * Includes a Browse button to select a different location
-* **Output subfolder name** to group files from a single experiment run
-* **Recording duration per frequency** (in seconds)
-* **Frequency range** (start and end values)
-* **Waveform voltage (Vpp)** (default: 5 Vpp)
-* **Sample frequency** (used for documentation in the log header, default: 1000 Hz)
-
-### Progress window
-
-When recording begins, a modal progress window appears displaying:
-
-* Overall progress across all frequencies
-* The current frequency being recorded
-* The name of the file currently being written
-* Elapsed time and estimated remaining time
-* A **Stop** button to safely cancel the run
-
-The main application UI remains locked until recording completes or is stopped.
-
-### Output file format
-
-Each test frequency produces a separate text file named:
-
-```
-log_<frequency>Hz.txt
+```text
+refCount,D,phaseRaw
 ```
 
-Each file begins with a header documenting the test conditions:
+Python mirrors the same displacement conversion logic:
 
-```
-Sample Frequency = 1000 Hz Voltage = 5 Vpp Test Frequency = 1 Hz
+```text
+phase = phaseRaw / 256.0
+displacement_nm = (D - phase) * (632.991372 / 2.0) - correction
 ```
 
-Followed by raw displacement entries:
+Current constants:
 
+* `WAVELENGTH_NM = 632.991372`
+* `PHASE_SCALE = 256.0`
+* `CORRECTION_NM = 0.0`
+
+This means:
+
+* each full fringe contributes `λ/2`
+* `phaseRaw` refines the displacement within that fringe
+* the result is a nanometer-scale displacement estimate
+
+---
+
+## File Structure
+
+```text
+laserai/
+│
+├── app.py
+├── display.py
+├── moku_waveform.py
+├── record_data.py
+├── process_raw.py
+├── README.md
+├── requirements.txt
+│
+├── broker_mqtt/
+│   └── mosquitto.exe
+│
+├── umd_gui/
+│   └── uMD_GUI.exe
+│
+├── moku_data/
+│
+├── build/
+├── dist/
+└── .venv/
 ```
+
+---
+
+## File Responsibilities
+
+### `app.py`
+
+Main GUI entry point.
+
+Responsibilities:
+
+* creates the Tk / ttkbootstrap app
+* builds the notebook tabs
+* resolves `BASE_DIR` safely for both Python and PyInstaller
+* exports `MOKU_DATA_PATH`
+* prepends bundled `moku` tools to `PATH` when needed
+* wires app shutdown to `display_tab.shutdown()`
+
+### `display.py`
+
+MQTT and VB application integration.
+
+Responsibilities:
+
+* launches `uMD_GUI.exe`
+* starts the bundled Mosquitto broker if needed
+* subscribes to MQTT topic `vb_to_py`
+* parses payloads
+* computes displacement in nm
+* stores latest received data for display and recording
+
+### `moku_waveform.py`
+
+Moku:Go waveform control and PID smoothing.
+
+Responsibilities:
+
+* connects to Moku:Go
+* deploys Multi-Instrument Mode
+* manages waveform configuration
+* applies waveform changes
+* exposes the current waveform config to the Record tab
+* optionally enables PID smoothing
+
+### `record_data.py`
+
+Automated acquisition workflow.
+
+Responsibilities:
+
+* checks readiness conditions
+* mirrors the current waveform selected in the Moku tab
+* sweeps frequency when appropriate
+* records one log file per run
+* writes raw `D / N` records
+* manages modal progress and stop handling
+
+### `process_raw.py`
+
+Offline raw-data processor.
+
+Responsibilities:
+
+* parses `.txt` logs
+* converts counts to displacement in nm
+* generates CSV outputs
+* creates plots
+* provides some cross-platform folder helpers
+
+---
+
+## Current Workflow
+
+Typical use:
+
+1. Launch the application
+2. Connect to **Moku:Go** in the Moku tab
+3. Select waveform type and settings
+4. Apply waveform
+5. Optionally enable PID smoothing
+6. Open the **uMD GUI** tab and launch `uMD_GUI.exe`
+7. Confirm MQTT data is streaming
+8. Go to **Record Data**
+9. Record a sweep or single run depending on waveform type
+10. Use **Process Raw** to convert logs into CSV and plots
+
+---
+
+## Recording Behavior
+
+The Record tab does **not** own waveform configuration.
+
+Instead, it reads the waveform currently configured in the Moku tab.
+
+### Periodic waveforms
+
+For these waveform types:
+
+* Sine
+* Square
+* Ramp
+* Pulse
+
+the Record tab performs a frequency sweep using the configured waveform type and its relevant parameters.
+
+### Noise
+
+Noise does not use the same frequency-sweep model as periodic waveforms.
+
+For Noise:
+
+* the Record tab hides frequency sweep controls
+* one run is recorded using the current Noise configuration
+
+---
+
+## Output Format
+
+Each recording produces a `.txt` log file.
+
+Examples:
+
+* `log_1Hz.txt`
+* `log_2Hz.txt`
+* `log_pulse.txt`
+* `log_noise.txt`
+
+Header example:
+
+```text
+Sample Frequency = 1000 Hz Voltage = 5 Vpp Waveform = Square Channel = 1 Test Frequency = 3 Hz Offset = 0 V Phase = 0 deg Duty = 50 %
+```
+
+Data lines:
+
+```text
 D:68 N:1
 D:68 N:2
 D:69 N:3
@@ -252,180 +342,197 @@ D:69 N:3
 
 Where:
 
-* **D** is the raw displacement count from the interferometer
-* **N** is a local serial index starting at 1 for each file
+* `D` is the raw displacement count received from the VB → MQTT pipeline
+* `N` is a local serial counter starting at 1 for each file
 
-This format is intentionally compatible with the existing Raw Data Processor.
+This format is intentionally compatible with the raw processor.
 
 ---
 
-# **Architecture**
+## Raw Processing Output
 
-## Multi-Instrument Mode (MiM)
+The raw processor exports:
 
-LaserAI connects to the Moku:Go using **Multi-Instrument Mode** instead of deploying a standalone Waveform Generator. This allows two instruments to run simultaneously on the FPGA:
+* CSV file
+* full plot of all samples
+* zoomed plot of the first N points
 
-```
-┌─────────────────────────────────────────────────┐
-│                  Moku:Go FPGA                   │
-│                                                 │
-│  ┌──────────────┐      ┌──────────────┐        │
-│  │   Slot 1     │      │   Slot 2     │        │
-│  │  Waveform    │─────▶│    PID       │──▶ Output 1
-│  │  Generator   │      │  Controller  │        │
-│  └──────────────┘      └──────────────┘        │
-│         │                                       │
-│         └──────────────────────────────────▶ Output 1
-│              (when PID is OFF)                  │
-└─────────────────────────────────────────────────┘
-```
+Modes:
 
-When PID is OFF, the WG output routes directly to Output 1. When PID is ON, the WG output passes through the PID Controller first. The routing switch happens internally on the FPGA with zero interruption to the waveform.
+* **Absolute**
+* **Relative (baseline-subtracted)**
 
-## System Data Flow
+Outputs are saved under the system Downloads folder in:
 
-```
-[Moku:Go WG + PID]  →  [Piezo Amplifier]  →  [Physical Displacement]
-                                                       ↓
-                                              [Laser Interferometer]
-                                                       ↓
-                                              [VB uMD_GUI.exe]
-                                                       ↓
-                                              [MQTT (vb_to_py)]
-                                                       ↓
-                                              [Python display.py]
-                                                       ↓
-                                              [Graph + Log Files]
+```text
+output_<foldername>
 ```
 
 ---
 
-# **Installation**
+## Installation
 
-## Requirements
+### Requirements
 
-* Python **3.13**
-* pip packages:
+* Python 3.13 recommended
+* Windows is the primary target environment
 
-  ```
-  ttkbootstrap
-  matplotlib
-  moku   (optional but required for real waveform control)
-  ```
+Install dependencies:
 
-Install everything from requirements:
-
-```
+```bash
 pip install -r requirements.txt
 ```
 
+### `requirements.txt`
+
+Current dependencies:
+
+```text
+ttkbootstrap
+paho-mqtt
+matplotlib
+pyserial
+pyinstaller
+moku
+```
+
 ---
 
-## Moku Dependencies
+## Moku Setup
 
-On Windows, install:
+You need:
 
-* **Moku CLI** (must be on PATH)
-* **Moku Python API**:
+* the **Moku Python package**
+* **Moku CLI**
+* instrument data compatible with your installed MokuOS version
 
-```
+Install / update the Python package:
+
+```bash
 pip install --upgrade moku
 ```
 
-Verify:
+Verify the CLI:
 
-```
+```bash
 mokucli --help
 ```
 
-If the app cannot find the CLI or API, it will show a setup panel and explain how to fix it.
-
----
-
-# **Building the Windows EXE**
-
-From PowerShell (not WSL):
-
-```
-pyinstaller app.py --onefile --noconsole
-```
-
-This generates:
-
-```
-/dist/app.exe
-```
-
-Note: Running PyInstaller inside WSL will create a Linux binary instead. Always build from Windows-side PowerShell.
-
----
-
-# **Repository Structure**
-
-```
-laserai/
-│
-├── app.py                # Main launcher (GUI host)
-├── moku_waveform.py      # Waveform Generator + PID smoothing (MiM)
-├── display.py            # uMD GUI display + MQTT subscriber
-├── record_data.py        # Automated frequency sweep recorder
-├── process_raw.py        # Raw data engine + GUI
-│
-├── moku_diagnostic.py    # Standalone hardware diagnostic tool
-│
-├── broker_mqtt/          # MQTT broker binaries (Windows)
-│
-├── moku_data/            # Instrument model data (bar files)
-│
-├── umd_gui/              # Legacy UMD GUI binaries
-│
-├── .venv/                # Local virtual environment (ignored)
-├── build/                # PyInstaller build output (ignored)
-├── dist/                 # Final packaged exe (ignored)
-│
-└── .gitignore            # Repository ignore rules
-```
-
----
-
-# **Usage Overview**
-
-1. Launch the app
-
-2. Select one of the available tabs:
-
-   * **Moku:Go Waveform** — generate waveforms + optional PID smoothing
-   * **uMD GUI** — view live displacement data
-   * **Record Data** — automated frequency sweep recording
-   * **Process Raw** — offline data processing
-
-3. **Typical workflow:**
-
-   * Connect to Moku:Go → Apply Waveform → (optional) Enable PID Smoothing
-   * Switch to uMD GUI tab to observe live displacement
-   * Use Record Data tab to capture data at multiple frequencies
-   * Use Process Raw tab to convert logs to CSV + plots
-
----
-
-# **Diagnostic Tool**
-
-`moku_diagnostic.py` is a standalone script for verifying hardware connectivity and Multi-Instrument Mode support. Run it before using the app if you encounter connection issues:
+Download instrument data if needed:
 
 ```bash
-python moku_diagnostic.py                # default IP 192.168.73.1
-python moku_diagnostic.py 192.168.1.xx   # custom IP
+mokucli instrument download <MokuOS_version>
 ```
 
-The diagnostic tests:
-* Standalone PID Controller connectivity
-* Multi-Instrument Mode availability
-* WaveformGenerator + PIDController deployment in MiM
-* Signal routing configuration
-* `set_control_matrix`, `get_data()`, and cleanup methods
+If Moku dependencies are not available, the waveform tab will show a setup screen instead of the full waveform controls.
 
 ---
 
-# **License**
+## Running the App
+
+From the project root:
+
+```bash
+python app.py
+```
+
+---
+
+## Building the Windows EXE
+
+Use PowerShell and run from the project root.
+
+### One-line version
+
+```powershell
+python -m PyInstaller --name LaserLab_v4.1 --onefile --noconsole --add-data "moku_data;moku_data" --add-data "umd_gui;umd_gui" --add-data "broker_mqtt;broker_mqtt" app.py
+```
+
+### Multi-line PowerShell version
+
+```powershell
+python -m PyInstaller --name LaserLab_v4.1 --onefile --noconsole `
+  --add-data "moku_data;moku_data" `
+  --add-data "umd_gui;umd_gui" `
+  --add-data "broker_mqtt;broker_mqtt" `
+  app.py
+```
+
+Important:
+
+* In **PowerShell**, use the backtick `` ` `` for line continuation
+* Do **not** paste the shell prompt itself into the terminal
+* Do **not** include `>>`
+
+Expected output:
+
+```text
+dist\LaserLab_v4.1.exe
+```
+
+---
+
+## PyInstaller Notes
+
+This project depends on runtime-relative bundled folders, so these must be included in the build:
+
+* `moku_data`
+* `umd_gui`
+* `broker_mqtt`
+
+The app uses a PyInstaller-safe base directory helper so resources can be found both:
+
+* during normal Python execution
+* in a one-file packaged executable
+
+---
+
+## Known Design Constraints
+
+* The VB application is still part of the measurement path
+* Python currently does not replace VB-side interferometer decoding
+* Windows is the main target platform
+* The app is designed to avoid hardcoded absolute paths
+* Tkinter UI updates should remain on the main thread
+* Worker threads may read latest shared values, but the UI itself should not be updated directly from worker threads
+
+---
+
+## Known Good Areas
+
+* PyInstaller base-directory strategy
+* Bundled `uMD_GUI.exe` launch pattern
+* Bundled Mosquitto launch pattern
+* MQTT payload parsing structure
+* Record Data modal progress approach
+* Process Raw export pipeline
+
+---
+
+## Areas to Watch / Active Development
+
+* readiness booleans for the Record tab
+* exact meaning of “uMD running” versus “actively streaming”
+* precise sample-rate behavior during recording
+* exact accepted Moku API kwargs depending on installed package version and device firmware
+* future expansion into additional modulation / burst / sweep features if needed
+
+---
+
+## Notes on the VB Application
+
+`uMD_GUI.exe` is a Visual Basic executable included under:
+
+```text
+umd_gui/uMD_GUI.exe
+```
+
+It is not just a viewer. It is currently part of the live data production path and publishes interferometer-derived values over MQTT.
+
+The source code for the VB application exists separately, even though the compiled EXE is what this project currently launches.
+
+---
+
+## License
 
 MIT
