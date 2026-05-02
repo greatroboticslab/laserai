@@ -1,0 +1,81 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{3B319C35-1C84-4ED3-8676-B48BE433951B}|uMD_GUI.vbproj|c:\\users\\thang\\source\\repos\\laserdisplacement_general\\umd_gui-30-dec-7.29pm-20250316t042754z-001\\umd_gui-30-dec-7.29pm\\mainform.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
+      "RelativeMoniker": "D:0:0:{3B319C35-1C84-4ED3-8676-B48BE433951B}|uMD_GUI.vbproj|solutionrelative:mainform.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{3B319C35-1C84-4ED3-8676-B48BE433951B}|uMD_GUI.vbproj|C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\mqtt.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}",
+      "RelativeMoniker": "D:0:0:{3B319C35-1C84-4ED3-8676-B48BE433951B}|uMD_GUI.vbproj|solutionrelative:mqtt.vb||{2C015C70-C72C-11D0-88C3-00A0C9110049}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 8,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:132:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:129:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:131:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:133:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:130:0:{1fc202d4-d401-403c-9834-5b218574bb67}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "mqtt.vb",
+              "DocumentMoniker": "C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\mqtt.vb",
+              "RelativeDocumentMoniker": "mqtt.vb",
+              "ToolTip": "C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\mqtt.vb",
+              "RelativeToolTip": "mqtt.vb",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACwAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2025-12-16T22:10:55.14Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MainForm.vb",
+              "DocumentMoniker": "C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\MainForm.vb",
+              "RelativeDocumentMoniker": "MainForm.vb",
+              "ToolTip": "C:\\Users\\thang\\source\\repos\\laserdisplacement_general\\uMD_GUI-30-Dec-7.29PM-20250316T042754Z-001\\uMD_GUI-30-Dec-7.29PM\\MainForm.vb",
+              "RelativeToolTip": "MainForm.vb",
+              "ViewState": "AgIAAKUDAAAAAAAAAAA0wHEEAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003361|",
+              "WhenOpened": "2025-12-05T23:18:49.777Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

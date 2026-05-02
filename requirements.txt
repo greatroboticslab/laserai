@@ -1,0 +1,6 @@
+ttkbootstrap
+paho-mqtt
+matplotlib
+pyserial
+pyinstaller
+moku
